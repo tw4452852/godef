@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"regexp"
 	"strconv"
+	"strings"
 
 	"github.com/tw4452852/godef/go/ast"
 	"github.com/tw4452852/godef/go/scanner"
@@ -229,6 +230,11 @@ func (p *parser) declare1(decl ast.Node, scope *ast.Scope, kind ast.ObjKind, ide
 }
 
 func (p *parser) redeclared(ident *ast.Ident, prev *ast.Object, reason string) {
+	if f := p.fset.File(ident.Pos()); isPlatformDependent(f) {
+		ident.Obj.Next = prev.Next
+		prev.Next = ident.Obj
+		return
+	}
 	if p.mode&DeclarationErrors == 0 {
 		return
 	}
@@ -239,6 +245,48 @@ func (p *parser) redeclared(ident *ast.Ident, prev *ast.Object, reason string) {
 		prevDecl = fmt.Sprintf("\n\tprevious declaration as %s", prev.Kind)
 	}
 	p.error(ident.Pos(), fmt.Sprintf("%s redeclared%s in this block%s", ident.Name, reason, prevDecl))
+}
+
+var (
+	goosSuffixes = []string{
+		"_dragonfly.go",
+		"_netbsd.go",
+		"_openbsd.go",
+		"_solaris.go",
+		"_freebsd.go",
+		"_nacl.go",
+		"_android.go",
+		"_plan9.go",
+		"_darwin.go",
+		"_linux.go",
+		"_windows.go",
+	}
+	goarchSuffixes = []string{
+		"_amd64.go",
+		"_amd64p32.go",
+		"_arm.go",
+		"_ppc64.go",
+		"_ppc64le.go",
+		"_386.go",
+	}
+)
+
+func isPlatformDependent(f *token.File) bool {
+	if f == nil {
+		return false
+	}
+	fn := f.Name()
+	for _, os := range goosSuffixes {
+		if strings.HasSuffix(fn, os) {
+			return true
+		}
+	}
+	for _, arch := range goarchSuffixes {
+		if strings.HasSuffix(fn, arch) {
+			return true
+		}
+	}
+	return false
 }
 
 func (p *parser) shortVarDecl(idents []*ast.Ident, stmt *ast.AssignStmt) {

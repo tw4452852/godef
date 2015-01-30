@@ -29,6 +29,7 @@ var aflag = flag.Bool("a", false, "print public type and member information")
 var Aflag = flag.Bool("A", false, "print all type and members information")
 var fflag = flag.String("f", "", "Go source filename")
 var acmeFlag = flag.Bool("acme", false, "use current acme window")
+var pflag = flag.Bool("p", false, "print all platform-dependent definitions")
 
 func fail(s string, a ...interface{}) {
 	fmt.Fprint(os.Stderr, "godef: "+fmt.Sprintf(s, a...)+"\n")
@@ -219,8 +220,15 @@ func (o orderedObjects) Swap(i, j int)      { o[i], o[j] = o[j], o[i] }
 
 func done(obj *ast.Object, typ types.Type) {
 	defer os.Exit(0)
-	pos := types.FileSet.Position(types.DeclPos(obj))
-	fmt.Printf("%v\n", pos)
+	if *pflag {
+		for o := obj; o != nil; o = o.Next {
+			pos := types.FileSet.Position(types.DeclPos(o))
+			fmt.Printf("%v\n", pos)
+		}
+	} else {
+		pos := types.FileSet.Position(types.DeclPos(obj))
+		fmt.Printf("%v\n", pos)
+	}
 	if typ.Kind == ast.Bad || !*tflag {
 		return
 	}
