@@ -14,8 +14,8 @@ import (
 	"log"
 	"testing"
 
-	"github.com/rogpeppe/godef/go/ast"
-	"github.com/rogpeppe/godef/go/parser"
+	"github.com/tw4452852/godef/go/ast"
+	"github.com/tw4452852/godef/go/parser"
 )
 
 var testfile *ast.File

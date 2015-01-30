@@ -8,7 +8,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/rogpeppe/godef/go/token"
+	"github.com/tw4452852/godef/go/token"
 )
 
 var fset = token.NewFileSet()
