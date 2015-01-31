@@ -29,7 +29,7 @@ var aflag = flag.Bool("a", false, "print public type and member information")
 var Aflag = flag.Bool("A", false, "print all type and members information")
 var fflag = flag.String("f", "", "Go source filename")
 var acmeFlag = flag.Bool("acme", false, "use current acme window")
-var pflag = flag.Bool("p", false, "print all platform-dependent definitions")
+var pflag = flag.Bool("p", true, "print all platform-dependent definitions")
 
 func fail(s string, a ...interface{}) {
 	fmt.Fprint(os.Stderr, "godef: "+fmt.Sprintf(s, a...)+"\n")
