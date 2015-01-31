@@ -230,7 +230,7 @@ func (p *parser) declare1(decl ast.Node, scope *ast.Scope, kind ast.ObjKind, ide
 }
 
 func (p *parser) redeclared(ident *ast.Ident, prev *ast.Object, reason string) {
-	if f := p.fset.File(ident.Pos()); isPlatformDependent(f) {
+	if f := p.fset.File(ident.Pos()); f.IsPlatformDependent() {
 		ident.Obj.Next = prev.Next
 		prev.Next = ident.Obj
 		return
@@ -245,48 +245,6 @@ func (p *parser) redeclared(ident *ast.Ident, prev *ast.Object, reason string) {
 		prevDecl = fmt.Sprintf("\n\tprevious declaration as %s", prev.Kind)
 	}
 	p.error(ident.Pos(), fmt.Sprintf("%s redeclared%s in this block%s", ident.Name, reason, prevDecl))
-}
-
-var (
-	goosSuffixes = []string{
-		"_dragonfly.go",
-		"_netbsd.go",
-		"_openbsd.go",
-		"_solaris.go",
-		"_freebsd.go",
-		"_nacl.go",
-		"_android.go",
-		"_plan9.go",
-		"_darwin.go",
-		"_linux.go",
-		"_windows.go",
-	}
-	goarchSuffixes = []string{
-		"_amd64.go",
-		"_amd64p32.go",
-		"_arm.go",
-		"_ppc64.go",
-		"_ppc64le.go",
-		"_386.go",
-	}
-)
-
-func isPlatformDependent(f *token.File) bool {
-	if f == nil {
-		return false
-	}
-	fn := f.Name()
-	for _, os := range goosSuffixes {
-		if strings.HasSuffix(fn, os) {
-			return true
-		}
-	}
-	for _, arch := range goarchSuffixes {
-		if strings.HasSuffix(fn, arch) {
-			return true
-		}
-	}
-	return false
 }
 
 func (p *parser) shortVarDecl(idents []*ast.Ident, stmt *ast.AssignStmt) {
@@ -2264,6 +2222,9 @@ func (p *parser) parseFile() *ast.File {
 	}
 	initialScope := p.topScope
 
+	// get platform dependent info from file name or build tag
+	platformDependent(p.file, p.comments)
+
 	// package clause
 	doc := p.leadComment
 	pos := p.expect(token.PACKAGE)
@@ -2296,4 +2257,66 @@ func (p *parser) parseFile() *ast.File {
 	}
 
 	return &ast.File{doc, pos, ident, decls, p.fileScope, nil, nil, p.comments}
+}
+
+var (
+	goosSuffixes = []string{
+		"_dragonfly.go",
+		"_netbsd.go",
+		"_openbsd.go",
+		"_solaris.go",
+		"_freebsd.go",
+		"_nacl.go",
+		"_android.go",
+		"_plan9.go",
+		"_darwin.go",
+		"_linux.go",
+		"_windows.go",
+	}
+	goarchSuffixes = []string{
+		"_amd64.go",
+		"_amd64p32.go",
+		"_arm.go",
+		"_ppc64.go",
+		"_ppc64le.go",
+		"_386.go",
+	}
+	buildPrefix = "// +build"
+)
+
+// platformDependent sets file is platform dependent or not
+func platformDependent(f *token.File, cgs []*ast.CommentGroup) {
+	if f == nil {
+		return
+	}
+
+	//TODO: if file already has platform dependent info, return
+
+	// get from file name
+	fn := f.Name()
+	for _, os := range goosSuffixes {
+		if strings.HasSuffix(fn, os) {
+			f.PlatformDependent()
+			return
+		}
+	}
+	for _, arch := range goarchSuffixes {
+		if strings.HasSuffix(fn, arch) {
+			f.PlatformDependent()
+			return
+		}
+	}
+
+	// get from build constraint
+	if cgs == nil {
+		return
+	}
+	for _, cg := range cgs {
+		for _, c := range cg.List {
+			if strings.HasPrefix(c.Text, buildPrefix) {
+				f.PlatformDependent()
+				return
+			}
+		}
+	}
 }

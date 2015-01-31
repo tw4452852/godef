@@ -88,7 +88,7 @@ func main() {
 		src = b
 	}
 	pkgScope := ast.NewScope(parser.Universe)
-	f, err := parser.ParseFile(types.FileSet, filename, src, 0, pkgScope)
+	f, err := parser.ParseFile(types.FileSet, filename, src, parser.ParseComments, pkgScope)
 	if f == nil {
 		fail("cannot parse %s: %v", filename, err)
 	}
@@ -326,7 +326,7 @@ func parseLocalPackage(filename string, src *ast.File, pkgScope *ast.Scope) (*as
 			pkgName(file) != pkg.Name {
 			continue
 		}
-		src, err := parser.ParseFile(types.FileSet, file, nil, 0, pkg.Scope)
+		src, err := parser.ParseFile(types.FileSet, file, nil, parser.ParseComments, pkg.Scope)
 		if err == nil {
 			pkg.Files[file] = src
 		}
