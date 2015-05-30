@@ -121,7 +121,7 @@ func main() {
 	case ast.Expr:
 		if !*tflag {
 			// try local declarations only
-			if obj, typ := types.ExprType(e, types.DefaultImporter); obj != nil {
+			if obj, typ := types.ExprType(e, types.DefaultImporter); obj != nil && typ.Kind != ast.Bad {
 				done(obj, typ)
 			}
 		}

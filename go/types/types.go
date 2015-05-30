@@ -226,7 +226,6 @@ func exprType(n ast.Node, expectTuple bool, pkg string, importer Importer) (xobj
 			_, t := exprType(expr, false, pkg, importer)
 			if t.Kind == ast.Typ {
 				debugp("expected value, got type %v", t)
-				t = badType
 			}
 			return obj, t
 
@@ -297,7 +296,7 @@ func exprType(n ast.Node, expectTuple bool, pkg string, importer Importer) (xobj
 			return nil, certify(n.Elt, ast.Var, t.Pkg, importer)
 		case *ast.MapType:
 			t := certify(n.Value, ast.Var, t.Pkg, importer)
-			if expectTuple {
+			if expectTuple && t.Kind != ast.Bad {
 				return nil, Type{MultiValue{[]ast.Expr{t.Node.(ast.Expr), predecl("bool")}}, ast.Var, t.Pkg}
 			}
 			return nil, t
