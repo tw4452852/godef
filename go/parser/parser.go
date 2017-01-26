@@ -11,7 +11,7 @@ package parser
 
 import (
 	"fmt"
-	"regexp"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -19,18 +19,6 @@ import (
 	"github.com/tw4452852/godef/go/scanner"
 	"github.com/tw4452852/godef/go/token"
 )
-
-var importPathPat = regexp.MustCompile(`((?:\p{L}|_)(?:\p{L}|_|\p{Nd})*)(?:\.v\d+(-unstable)?)?$`)
-
-// ImportPathToName returns the default identifier name
-// for a package path. It is not guaranteed to be correct.
-func ImportPathToName(p string) string {
-	id := importPathPat.FindStringSubmatch(p)
-	if id == nil {
-		return ""
-	}
-	return id[1]
-}
 
 // The mode parameter to the Parse* functions is a set of flags (or 0).
 // They control the amount of source code parsed and other optional
@@ -49,7 +37,8 @@ type parser struct {
 	fset *token.FileSet
 	file *token.File
 	scanner.ErrorVector
-	scanner scanner.Scanner
+	scanner    scanner.Scanner
+	pathToName ImportPathToName
 
 	// Tracing/debugging
 	mode   uint // parsing mode
@@ -89,10 +78,14 @@ func scannerMode(mode uint) uint {
 	return m
 }
 
-func (p *parser) init(fset *token.FileSet, filename string, src []byte, mode uint, topScope *ast.Scope) {
+func (p *parser) init(fset *token.FileSet, filename string, src []byte, mode uint, topScope *ast.Scope, pathToName ImportPathToName) {
 	p.fset = fset
 	p.file = fset.AddFile(filename, fset.Base(), len(src))
 	p.scanner.Init(p.file, src, p, scannerMode(mode))
+	p.pathToName = pathToName
+	if p.pathToName == nil {
+		p.pathToName = naiveImportPathToName
+	}
 
 	p.mode = mode
 	p.trace = mode&Trace != 0 // for convenience (p.trace is used frequently)
@@ -103,6 +96,13 @@ func (p *parser) init(fset *token.FileSet, filename string, src []byte, mode uin
 
 	// for the same reason, set up a label scope
 	p.openLabelScope()
+}
+
+func naiveImportPathToName(path, _ string) (string, error) {
+	if i := strings.LastIndex(path, "/"); i >= 0 {
+		path = path[0:i]
+	}
+	return path, nil
 }
 
 // ----------------------------------------------------------------------------
@@ -172,6 +172,9 @@ func (p *parser) declare1(decl ast.Node, scope *ast.Scope, kind ast.ObjKind, ide
 					rt = t.Obj
 				case *ast.StarExpr:
 					rt = t.X.(*ast.Ident).Obj
+				case *ast.BadExpr:
+					// Partially typed code can get here.
+					return
 				default:
 					panic(fmt.Errorf("unknown type %T (%#v)", t, t))
 				}
@@ -1967,9 +1970,10 @@ func parseImportSpec(p *parser, doc *ast.CommentGroup, decl *ast.GenDecl, _ int)
 	if p.tok == token.STRING {
 		path = &ast.BasicLit{p.pos, p.tok, p.lit}
 		if declIdent == nil {
-			name := ImportPathToName(litToString(path))
+			filename := p.fset.Position(path.Pos()).Filename
+			name, err := p.pathToName(litToString(path), filepath.Dir(filename))
 			if name == "" {
-				p.error(path.Pos(), "invalid package path")
+				p.error(path.Pos(), fmt.Sprintf("cannot find identifier for package %q: %v", litToString(path), err))
 			} else {
 				declIdent = &ast.Ident{NamePos: path.ValuePos, Name: name}
 			}
